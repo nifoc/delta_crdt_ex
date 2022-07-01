@@ -115,7 +115,7 @@ defmodule DeltaCrdt do
   """
   @spec set_neighbours(crdt :: t(), neighbours :: list(t())) :: :ok
   def set_neighbours(crdt, neighbours) when is_list(neighbours) do
-    send(crdt, {:set_neighbours, neighbours})
+    Process.send(crdt, {:set_neighbours, neighbours}, [:noconnect])
     :ok
   end
 

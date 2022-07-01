@@ -112,10 +112,11 @@ defmodule DeltaCrdt.CausalCrdt do
   def handle_info({:get_diff, diff, keys}, state) do
     diff = reverse_diff(diff)
 
-    send(
+    Process.send(
       diff.to,
       {:diff,
-       %{state.crdt_state | dots: diff.dots, value: Map.take(state.crdt_state.value, keys)}, keys}
+       %{state.crdt_state | dots: diff.dots, value: Map.take(state.crdt_state.value, keys)}, keys},
+      [:noconnect]
     )
 
     ack_diff(diff)
@@ -278,7 +279,7 @@ defmodule DeltaCrdt.CausalCrdt do
       |> Enum.reduce(state.outstanding_syncs, fn neighbour, outstanding_syncs ->
         Map.put_new_lazy(outstanding_syncs, neighbour, fn ->
           try do
-            send(neighbour, {:diff, %Diff{diff | to: neighbour}})
+            Process.send(neighbour, {:diff, %Diff{diff | to: neighbour}}, [:noconnect])
             1
           rescue
             _ in ArgumentError ->
@@ -329,18 +330,19 @@ defmodule DeltaCrdt.CausalCrdt do
   end
 
   defp send_diff_continue(diff) do
-    send(diff.to, {:diff, diff})
+    Process.send(diff.to, {:diff, diff}, [:noconnect])
   end
 
   defp send_diff(diff, keys, state) do
     if diff.originator == diff.to do
-      send(diff.to, {:get_diff, diff, keys})
+      Process.send(diff.to, {:get_diff, diff, keys}, [:noconnect])
     else
-      send(
+      Process.send(
         diff.to,
         {:diff,
          %{state.crdt_state | dots: diff.dots, value: Map.take(state.crdt_state.value, keys)},
-         keys}
+         keys},
+        [:noconnect]
       )
     end
   end
@@ -415,10 +417,10 @@ defmodule DeltaCrdt.CausalCrdt do
   end
 
   defp ack_diff(%{originator: originator, from: originator, to: to}) do
-    send(originator, {:ack_diff, to})
+    Process.send(originator, {:ack_diff, to}, [:noconnect])
   end
 
   defp ack_diff(%{originator: originator, from: from, to: originator}) do
-    send(originator, {:ack_diff, from})
+    Process.send(originator, {:ack_diff, from}, [:noconnect])
   end
 end
